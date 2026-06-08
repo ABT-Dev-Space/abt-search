@@ -1,0 +1,50 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow this workflow to publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; let an in-progress run finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare site for project-page base path
+        run: |
+          site="dist/abt-search-frontend/browser"
+          # The app is built with <base href="/">, but a project page is
+          # served from /abt-search/. Rewrite it so assets and routing resolve.
+          sed -i 's|<base href="/">|<base href="/abt-search/">|' "$site/index.html"
+          # SPA fallback: serve index.html for unknown routes (deep links / refresh).
+          cp "$site/index.html" "$site/404.html"
+          # Prevent Jekyll from ignoring files that start with an underscore.
+          touch "$site/.nojekyll"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/abt-search-frontend/browser
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
